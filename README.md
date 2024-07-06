@@ -2,23 +2,26 @@
 - More verbose messaging
 - A config file so you only need to enter your API keys once!
 - Denser path creation
+- RAINBOWS
+- Spinners for loading
+- Love and reminders
 
 # Wardriving Route Planner
 
 This Python script generates a wardriving route for Wi-Fi networks around a specified location using the Wigle API and the Mapbox Directions API. The route is optimized to cover as many Wi-Fi networks as possible within a specified search radius and is snapped to roads for accuracy. The script generates an HTML file with a map displaying the route, and it prints the start and end locations as addresses, along with the total distance of the route in miles.
 
 ## Features
+## Features
 
-- Generates a wardriving route for Wi-Fi networks around a specified location.
-- Uses the Wigle API to fetch Wi-Fi network data.
-- Uses the Mapbox Directions API to snap the route to roads.
-- Displays the route on a map with thick orange lines for visibility.
-- Prints the start and end locations as addresses.
-- Calculates and prints the total distance of the route in miles.
-- Prompts the user for API credentials and search parameters.
-- Supports verbose mode by default for detailed output.
-- Stores API credentials in a configuration file (`config.json`) to avoid repeated input.
-- Allows continuous querying without restarting the script.
+- **API Integration**: Utilizes Wigle.net for Wi-Fi network data and Mapbox for geocoding and route snapping.
+- **User Input**: Prompts for API credentials, starting location (address or latitude/longitude), search radius in kilometers, and network type (open, secure, or both).
+- **Loading Indicators**: Displays loading spinners while fetching network data and optimizing the route, providing a clear visual indication of ongoing processes.
+- **Route Optimization**: Uses a greedy algorithm to optimize the route, ensuring minimal travel distance while covering all target networks.
+- **Route Snapping**: Snaps the route to roads using the Mapbox Directions API, creating a realistic and navigable path.
+- **Dynamic Coloring**: Plots the route with a dynamically changing color scheme, transitioning through a rainbow spectrum.
+- **Start and End Markers**: Includes distinct start (green) and end (blue) markers on the map.
+- **Safety Reminders**: Provides reminders to ensure users prepare adequately for wardriving activities.
+- **Config File**: Stores API credentials in a configuration file for ease of use in future sessions.
 
 ## Requirements
 
@@ -74,10 +77,20 @@ Select the type of networks to target:
 3 - Both
 Enter your choice (1, 2, or 3): 3
 Please wait...
-Fetched 500 networks.
-Wardriving route saved to 'wardriving_route_XXXXXXXXXX.html'
+Fetching networks... Done!
+Optimizing route... Done!
+Saving HTML file... Done!
+Wardriving route saved to 'wardriving_route_1720295065.html'
 Start location: 123 Main St, Las Vegas, NV 89109, USA
-End location: 456 Elm St, Las Vegas, NV 89109, USA
-Total route distance: 4.23 miles
-Do you want to make another search? (yes/no): yes
+End location: 456 Another St, Las Vegas, NV 89109, USA
+Total route distance: 3.75 miles
+
+Reminder:
+1. Wardriving may require doubling back on the paths you've been on. You will go over some of the same areas more than once.
+2. Have fun and be safe. Prep all your gear before getting behind the wheel. Get water for your walk.
+
+Do you want to make another search? (yes/no):
 ```
+
+### Thank you!
+Thank you to Ark and friends who have tested the script!

@@ -8,8 +8,13 @@ import re
 import json
 import sys
 import os
+import math
+import threading
+import itertools
 
 CONFIG_FILE = 'config.json'
+MAX_NETWORKS = 2000  # Maximum number of networks to fetch
+RETRY_LIMIT = 3  # Number of retries for network errors
 
 def load_config():
     """
@@ -50,6 +55,29 @@ def get_user_input(config):
     print("Please wait...")
     return start_location, search_radius_m, network_type
 
+def reverse_haversine(lat, lon, distance, bearing):
+    """
+    Calculate the latitude and longitude of a point given a starting point, distance, and bearing.
+    
+    Args:
+    lat (float): Latitude of the starting point.
+    lon (float): Longitude of the starting point.
+    distance (float): Distance from the starting point in meters.
+    bearing (float): Bearing in degrees from north.
+    
+    Returns:
+    tuple: Latitude and longitude of the calculated point.
+    """
+    R = 6371e3  # Earth radius in meters
+    bearing = math.radians(bearing)
+    lat1 = math.radians(lat)
+    lon1 = math.radians(lon)
+    
+    lat2 = math.asin(math.sin(lat1) * math.cos(distance / R) + math.cos(lat1) * math.sin(distance / R) * math.cos(bearing))
+    lon2 = lon1 + math.atan2(math.sin(bearing) * math.sin(distance / R) * math.cos(lat1), math.cos(distance / R) - math.sin(lat1) * math.sin(lat2))
+    
+    return math.degrees(lat2), math.degrees(lon2)
+
 def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, verbose=True):
     """
     Fetch Wi-Fi network data from Wigle.net API.
@@ -67,12 +95,18 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, verbose
     list: List of Wi-Fi networks.
     """
     url = "https://api.wigle.net/api/v2/network/search"
+    
+    # Calculate bounding box using reverse haversine
+    southwest = reverse_haversine(lat, lon, radius, 225)  # Southwest corner
+    northeast = reverse_haversine(lat, lon, radius, 45)   # Northeast corner
+    
     params = {
-        "latrange1": lat - (radius / 111320),  # Convert radius to lat/lon degrees
-        "latrange2": lat + (radius / 111320),
-        "longrange1": lon - (radius / 111320),
-        "longrange2": lon + (radius / 111320),
-        "resultsPerPage": 500  # Fetch up to 500 results for denser path
+        "latrange1": southwest[0],
+        "latrange2": northeast[0],
+        "longrange1": southwest[1],
+        "longrange2": northeast[1],
+        "resultsPerPage": 100,  # Maximum results per page for Wigle API
+        "offset": 0
     }
     
     if network_type == "free":
@@ -85,17 +119,44 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, verbose
         "Authorization": f"Basic {auth}"
     }
     
-    try:
-        response = requests.get(url, params=params, headers=headers)
-        response.raise_for_status()
-        results = response.json().get('results', [])
-        if verbose:
-            print(f"Fetched {len(results)} networks.")
-        return results
-    except requests.exceptions.RequestException as e:
-        if verbose:
-            print(f"Error fetching data: {e}")
-        sys.exit(1)
+    networks = []
+    retry_count = 0
+
+    def spinner():
+        for char in itertools.cycle('|/-\\'):
+            if not loading:
+                break
+            sys.stdout.write(f'\rFetching networks... {char}')
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write('\rFetching networks... Done!\n')
+    
+    # Start spinner
+    loading = True
+    spinner_thread = threading.Thread(target=spinner)
+    spinner_thread.start()
+
+    while len(networks) < MAX_NETWORKS:
+        try:
+            response = requests.get(url, params=params, headers=headers)
+            response.raise_for_status()
+            results = response.json().get('results', [])
+            if not results:
+                break
+            networks.extend(results)
+            params["offset"] += 100
+            retry_count = 0  # Reset retry count after a successful fetch
+        except requests.exceptions.RequestException as e:
+            retry_count += 1
+            if retry_count >= RETRY_LIMIT:
+                break
+            time.sleep(1)  # Wait for a second before retrying
+    
+    # Stop spinner
+    loading = False
+    spinner_thread.join()
+    
+    return networks[:MAX_NETWORKS]
 
 def optimize_route(networks, start_lat, start_lon, verbose=True):
     """
@@ -110,8 +171,22 @@ def optimize_route(networks, start_lat, start_lon, verbose=True):
     Returns:
     list: Ordered list of Wi-Fi networks for the route.
     """
+    def spinner():
+        for char in itertools.cycle('|/-\\'):
+            if not loading:
+                break
+            sys.stdout.write('\rOptimizing route... ' + char)
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write('\rOptimizing route... Done!\n')
+    
     coordinates = [(start_lat, start_lon)] + [(network['trilat'], network['trilong']) for network in networks]
     distance_matrix = cdist(coordinates, coordinates, metric='euclidean')
+    
+    # Start spinner
+    loading = True
+    spinner_thread = threading.Thread(target=spinner)
+    spinner_thread.start()
     
     # Use a greedy algorithm for simplicity, prioritize closest networks first
     route = [0]
@@ -122,6 +197,11 @@ def optimize_route(networks, start_lat, start_lon, verbose=True):
         route.append(next_node)
     
     ordered_networks = [networks[i - 1] for i in route[1:]]
+    
+    # Stop spinner
+    loading = False
+    spinner_thread.join()
+    
     if verbose:
         print(f"Optimized route with {len(ordered_networks)} points.")
     return ordered_networks
@@ -269,15 +349,59 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
     # Get the snapped route using Mapbox Directions API
     snapped_route = get_snapped_route([(start_lat, start_lon)] + [(network['trilat'], network['trilong']) for network in route], mapbox_token, verbose)
     
-    folium.PolyLine(
-        locations=snapped_route,
-        color="orange", weight=10  # Make the line orange and very thick for visibility
+    colors = [
+        "#FF0000", "#FF4000", "#FF7F00", "#FFBF00", "#FFFF00", "#BFFF00", "#7FFF00", "#40FF00",
+        "#00FF00", "#00FF40", "#00FF7F", "#00FFBF", "#00FFFF", "#00BFFF", "#007FFF", "#0040FF",
+        "#0000FF", "#4000FF", "#7F00FF", "#BF00FF", "#FF00FF", "#FF00BF", "#FF007F", "#FF0040"
+    ]
+    
+    num_points = len(snapped_route)
+    for i in range(num_points - 1):
+        color_index = int((i / num_points) * len(colors))
+        folium.PolyLine(
+            locations=[snapped_route[i], snapped_route[i + 1]],
+            color=colors[color_index], weight=5  # Dynamic color change for path segments, less thick lines
+        ).add_to(map_)
+    
+    # Add start and end markers
+    folium.Marker(
+        location=[start_lat, start_lon],
+        popup="Start",
+        icon=folium.Icon(color='green')
     ).add_to(map_)
+    
+    if snapped_route:
+        folium.Marker(
+            location=snapped_route[-1],
+            popup="End",
+            icon=folium.Icon(color='blue')
+        ).add_to(map_)
     
     # Get the current time in epoch format
     epoch_time = int(time.time())
+    
+    def spinner():
+        for char in itertools.cycle('|/-\\'):
+            if not loading:
+                break
+            sys.stdout.write('\rSaving HTML file... ' + char)
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write('\rSaving HTML file... Done!\n')
+    
     filename = f"wardriving_route_{epoch_time}.html"
+
+    # Start spinner
+    loading = True
+    spinner_thread = threading.Thread(target=spinner)
+    spinner_thread.start()
+    
     map_.save(filename)
+
+    # Stop spinner
+    loading = False
+    spinner_thread.join()
+    
     print(f"Wardriving route saved to '{filename}'")
 
     # Print the first and last locations
@@ -337,6 +461,11 @@ def main():
         except ValueError as e:
             print(e)
         
+        # Provide reminders to the user
+        print("\nReminder:")
+        print("1. Wardriving may require doubling back on the paths you've been on. You will go over some of the same areas more than once.")
+        print("2. Have fun and be safe. Prep all your gear before getting behind the wheel. Get water for your walk.\n")
+
         # Ask the user if they want to make another query
         requery = input("Do you want to make another search? (yes/no): ").lower()
         if requery not in ['yes', 'y']:
