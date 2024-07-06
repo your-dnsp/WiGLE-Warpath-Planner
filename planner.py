@@ -5,14 +5,40 @@ from scipy.spatial.distance import cdist
 import folium
 import time
 import re
+import json
+import sys
+import os
 
-def get_user_input():
+CONFIG_FILE = 'config.json'
+
+def load_config():
+    """
+    Load API credentials from a configuration file.
+    """
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_config(config):
+    """
+    Save API credentials to a configuration file.
+    """
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f)
+
+def get_user_input(config):
     """
     Get user input for starting location, area to cover, and network parameters.
     """
-    print("Enter the starting location in latitude, longitude format (e.g., 36.1699,-115.1398).")
-    print("You may visit www.latlong.net to get your coordinates.")
-    start_location = input("Enter the starting location (latitude, longitude): ")
+    if 'wigle_api_name' not in config or 'wigle_api_token' not in config:
+        config['wigle_api_name'] = input("Enter your Wigle.net API name: ")
+        config['wigle_api_token'] = input("Enter your Wigle.net API token: ")
+    if 'mapbox_token' not in config:
+        config['mapbox_token'] = input("Enter your Mapbox API token: ")
+
+    print("Enter the starting location as either an address or latitude, longitude format (e.g., 36.1699,-115.1398).")
+    start_location = input("Enter the starting location: ")
     search_radius_km = float(input("Enter the search radius in kilometers: "))
     search_radius_m = search_radius_km * 1000  # Convert kilometers to meters
     print("Select the type of networks to target:")
@@ -24,7 +50,7 @@ def get_user_input():
     print("Please wait...")
     return start_location, search_radius_m, network_type
 
-def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token):
+def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, verbose=True):
     """
     Fetch Wi-Fi network data from Wigle.net API.
     
@@ -35,6 +61,7 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token):
     network_type (str): Type of networks to target.
     api_name (str): API name (username) for Wigle.net.
     api_token (str): API token for Wigle.net.
+    verbose (bool): Enable verbose output.
     
     Returns:
     list: List of Wi-Fi networks.
@@ -58,14 +85,19 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token):
         "Authorization": f"Basic {auth}"
     }
     
-    response = requests.get(url, params=params, headers=headers)
-    
-    if response.status_code == 200:
-        return response.json().get('results', [])
-    else:
-        raise ValueError(f"Failed to fetch data: {response.status_code}, {response.text}")
+    try:
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status()
+        results = response.json().get('results', [])
+        if verbose:
+            print(f"Fetched {len(results)} networks.")
+        return results
+    except requests.exceptions.RequestException as e:
+        if verbose:
+            print(f"Error fetching data: {e}")
+        sys.exit(1)
 
-def optimize_route(networks, start_lat, start_lon):
+def optimize_route(networks, start_lat, start_lon, verbose=True):
     """
     Optimize the route to cover all target Wi-Fi networks.
     
@@ -73,6 +105,7 @@ def optimize_route(networks, start_lat, start_lon):
     networks (list): List of Wi-Fi networks.
     start_lat (float): Starting latitude.
     start_lon (float): Starting longitude.
+    verbose (bool): Enable verbose output.
     
     Returns:
     list: Ordered list of Wi-Fi networks for the route.
@@ -89,15 +122,18 @@ def optimize_route(networks, start_lat, start_lon):
         route.append(next_node)
     
     ordered_networks = [networks[i - 1] for i in route[1:]]
+    if verbose:
+        print(f"Optimized route with {len(ordered_networks)} points.")
     return ordered_networks
 
-def get_snapped_route_chunk(route_chunk, mapbox_token):
+def get_snapped_route_chunk(route_chunk, mapbox_token, verbose=True):
     """
     Get a snapped route for a chunk of coordinates using Mapbox Directions API.
     
     Args:
     route_chunk (list): List of (lat, lon) tuples for a chunk.
     mapbox_token (str): Mapbox API token.
+    verbose (bool): Enable verbose output.
     
     Returns:
     list: List of (lat, lon) tuples for the snapped route chunk.
@@ -107,21 +143,25 @@ def get_snapped_route_chunk(route_chunk, mapbox_token):
     
     coords = ";".join([f"{lon},{lat}" for lat, lon in route_chunk])
     url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords}?geometries=geojson&access_token={mapbox_token}"
-    response = requests.get(url)
     
-    if response.status_code == 200:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
         route = response.json()["routes"][0]["geometry"]["coordinates"]
         return [(lat, lon) for lon, lat in route]
-    else:
-        raise ValueError(f"Failed to fetch snapped route: {response.status_code}, {response.text}")
+    except requests.exceptions.RequestException as e:
+        if verbose:
+            print(f"Error fetching snapped route: {e}")
+        sys.exit(1)
 
-def get_snapped_route(route_coordinates, mapbox_token):
+def get_snapped_route(route_coordinates, mapbox_token, verbose=True):
     """
     Get a route snapped to the roads using Mapbox Directions API in chunks.
     
     Args:
     route_coordinates (list): List of (lat, lon) tuples.
     mapbox_token (str): Mapbox API token.
+    verbose (bool): Enable verbose output.
     
     Returns:
     list: List of (lat, lon) tuples for the snapped route.
@@ -134,13 +174,40 @@ def get_snapped_route(route_coordinates, mapbox_token):
             # Combine with previous chunk if not enough coordinates
             snapped_route[-1].extend(chunk)
         else:
-            snapped_chunk = get_snapped_route_chunk(chunk, mapbox_token)
+            snapped_chunk = get_snapped_route_chunk(chunk, mapbox_token, verbose)
             snapped_route.append(snapped_chunk)
     
     # Flatten the list of snapped route chunks
     return [coord for chunk in snapped_route for coord in chunk]
 
-def get_address(lat, lon, mapbox_token):
+def get_lat_lon_from_address(address, mapbox_token, verbose=True):
+    """
+    Get latitude and longitude from an address using Mapbox Geocoding API.
+    
+    Args:
+    address (str): Address string.
+    mapbox_token (str): Mapbox API token.
+    verbose (bool): Enable verbose output.
+    
+    Returns:
+    tuple: Latitude and longitude of the address.
+    """
+    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{address}.json?access_token={mapbox_token}"
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        if data["features"]:
+            return data["features"][0]["center"][1], data["features"][0]["center"][0]
+        else:
+            raise ValueError("Address not found")
+    except requests.exceptions.RequestException as e:
+        if verbose:
+            print(f"Error fetching coordinates: {e}")
+        sys.exit(1)
+
+def get_address(lat, lon, mapbox_token, verbose=True):
     """
     Get address for a given latitude and longitude using Mapbox Geocoding API.
     
@@ -148,21 +215,25 @@ def get_address(lat, lon, mapbox_token):
     lat (float): Latitude.
     lon (float): Longitude.
     mapbox_token (str): Mapbox API token.
+    verbose (bool): Enable verbose output.
     
     Returns:
     str: Address for the given coordinates.
     """
     url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{lon},{lat}.json?access_token={mapbox_token}"
-    response = requests.get(url)
     
-    if response.status_code == 200:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
         data = response.json()
         if data["features"]:
             return data["features"][0]["place_name"]
         else:
             return "Address not found"
-    else:
-        raise ValueError(f"Failed to fetch address: {response.status_code}, {response.text}")
+    except requests.exceptions.RequestException as e:
+        if verbose:
+            print(f"Error fetching address: {e}")
+        return "Address not found"
 
 def calculate_total_distance(route_coordinates):
     """
@@ -179,7 +250,7 @@ def calculate_total_distance(route_coordinates):
         total_distance += np.linalg.norm(np.array(route_coordinates[i]) - np.array(route_coordinates[i-1]))
     return total_distance * 0.621371  # Convert kilometers to miles
 
-def plot_route(route, start_lat, start_lon, mapbox_token):
+def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
     """
     Plot the route on a map using Folium.
     
@@ -188,6 +259,7 @@ def plot_route(route, start_lat, start_lon, mapbox_token):
     start_lat (float): Starting latitude.
     start_lon (float): Starting longitude.
     mapbox_token (str): Mapbox API token.
+    verbose (bool): Enable verbose output.
     
     Returns:
     None
@@ -195,7 +267,7 @@ def plot_route(route, start_lat, start_lon, mapbox_token):
     map_ = folium.Map(location=[start_lat, start_lon], zoom_start=13)
     
     # Get the snapped route using Mapbox Directions API
-    snapped_route = get_snapped_route([(start_lat, start_lon)] + [(network['trilat'], network['trilong']) for network in route], mapbox_token)
+    snapped_route = get_snapped_route([(start_lat, start_lon)] + [(network['trilat'], network['trilong']) for network in route], mapbox_token, verbose)
     
     folium.PolyLine(
         locations=snapped_route,
@@ -210,8 +282,8 @@ def plot_route(route, start_lat, start_lon, mapbox_token):
 
     # Print the first and last locations
     if route:
-        start_address = get_address(route[0]['trilat'], route[0]['trilong'], mapbox_token)
-        end_address = get_address(route[-1]['trilat'], route[-1]['trilong'], mapbox_token)
+        start_address = get_address(route[0]['trilat'], route[0]['trilong'], mapbox_token, verbose)
+        end_address = get_address(route[-1]['trilat'], route[-1]['trilong'], mapbox_token, verbose)
         print(f"Start location: {start_address}")
         print(f"End location: {end_address}")
         
@@ -234,40 +306,41 @@ def main():
     """
     Main function to run the Wardriving Route Planner.
     """
-    # Prompt for Wigle API credentials
-    api_name = input("Enter your Wigle.net API name: ")
-    api_token = input("Enter your Wigle.net API token: ")
-    # Prompt for Mapbox API token
-    mapbox_token = input("Enter your Mapbox API token: ")
-    
+    config = load_config()
     while True:
         # Get user input for route planning
-        start_location, search_radius, network_type = get_user_input()
+        start_location, search_radius, network_type = get_user_input(config)
+        
+        # Ensure configuration is saved after getting inputs
+        save_config(config)
         
         try:
-            # Handle only latitude, longitude input
+            # Handle either address or latitude, longitude input
             if is_lat_lon(start_location):
                 start_lat, start_lon = map(float, start_location.split(","))
             else:
-                raise ValueError("Please enter the starting location in latitude, longitude format.")
+                start_lat, start_lon = get_lat_lon_from_address(start_location, config['mapbox_token'], True)
         
             # Fetch Wi-Fi network data
-            networks = fetch_wifi_data(start_lat, start_lon, search_radius, network_type, api_name, api_token)
+            networks = fetch_wifi_data(start_lat, start_lon, search_radius, network_type, config['wigle_api_name'], config['wigle_api_token'], True)
             
             if not networks:
                 print("No networks found.")
-                return
+                continue
             
             # Optimize the route to cover all networks
-            route = optimize_route(networks, start_lat, start_lon)
+            route = optimize_route(networks, start_lat, start_lon, True)
             
             # Plot and save the route to an HTML file
-            plot_route(route, start_lat, start_lon, mapbox_token)
-            break
+            plot_route(route, start_lat, start_lon, config['mapbox_token'], True)
         
         except ValueError as e:
             print(e)
-            continue
+        
+        # Ask the user if they want to make another query
+        requery = input("Do you want to make another search? (yes/no): ").lower()
+        if requery not in ['yes', 'y']:
+            break
 
 if __name__ == "__main__":
     main()
