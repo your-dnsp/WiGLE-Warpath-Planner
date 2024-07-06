@@ -11,7 +11,6 @@
 This Python script generates a wardriving route for Wi-Fi networks around a specified location using the Wigle API and the Mapbox Directions API. The route is optimized to cover as many Wi-Fi networks as possible within a specified search radius and is snapped to roads for accuracy. The script generates an HTML file with a map displaying the route, and it prints the start and end locations as addresses, along with the total distance of the route in miles.
 
 ## Features
-## Features
 
 - **API Integration**: Utilizes Wigle.net for Wi-Fi network data and Mapbox for geocoding and route snapping.
 - **User Input**: Prompts for API credentials, starting location (address or latitude/longitude), search radius in kilometers, and network type (open, secure, or both).
