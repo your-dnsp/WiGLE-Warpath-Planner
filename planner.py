@@ -11,10 +11,40 @@ import os
 import math
 import threading
 import itertools
+from cryptography.fernet import Fernet
 
 CONFIG_FILE = 'config.json'
+KEY_FILE = 'secret.key'
 MAX_NETWORKS = 2000  # Maximum number of networks to fetch
 RETRY_LIMIT = 3  # Number of retries for network errors
+
+def generate_key():
+    """
+    Generate a key for encryption and save it to a file.
+    """
+    key = Fernet.generate_key()
+    with open(KEY_FILE, 'wb') as key_file:
+        key_file.write(key)
+
+def load_key():
+    """
+    Load the encryption key from the file.
+    """
+    return open(KEY_FILE, 'rb').read()
+
+def encrypt_message(message, key):
+    """
+    Encrypt a message using the provided key.
+    """
+    f = Fernet(key)
+    return f.encrypt(message.encode()).decode()
+
+def decrypt_message(encrypted_message, key):
+    """
+    Decrypt an encrypted message using the provided key.
+    """
+    f = Fernet(key)
+    return f.decrypt(encrypted_message.encode()).decode()
 
 def load_config():
     """
@@ -22,15 +52,28 @@ def load_config():
     """
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+            encrypted_config = json.load(f)
+        key = load_key()
+        config = {
+            'wigle_api_name': decrypt_message(encrypted_config['wigle_api_name'], key),
+            'wigle_api_token': decrypt_message(encrypted_config['wigle_api_token'], key),
+            'mapbox_token': decrypt_message(encrypted_config['mapbox_token'], key)
+        }
+        return config
     return {}
 
 def save_config(config):
     """
     Save API credentials to a configuration file.
     """
+    key = load_key()
+    encrypted_config = {
+        'wigle_api_name': encrypt_message(config['wigle_api_name'], key),
+        'wigle_api_token': encrypt_message(config['wigle_api_token'], key),
+        'mapbox_token': encrypt_message(config['mapbox_token'], key)
+    }
     with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f)
+        json.dump(encrypted_config, f)
 
 def get_user_input(config):
     """
@@ -202,41 +245,40 @@ def optimize_route(networks, start_lat, start_lon, verbose=True):
     loading = False
     spinner_thread.join()
     
-    if verbose:
-        print(f"Optimized route with {len(ordered_networks)} points.")
     return ordered_networks
 
-def get_snapped_route_chunk(route_chunk, mapbox_token, verbose=True):
+def get_snapped_route_chunk(chunk, mapbox_token, verbose=True):
     """
-    Get a snapped route for a chunk of coordinates using Mapbox Directions API.
+    Get a snapped route for a chunk of coordinates using the Mapbox Directions API.
     
     Args:
-    route_chunk (list): List of (lat, lon) tuples for a chunk.
+    chunk (list): List of (lat, lon) tuples.
     mapbox_token (str): Mapbox API token.
     verbose (bool): Enable verbose output.
     
     Returns:
-    list: List of (lat, lon) tuples for the snapped route chunk.
+    list: List of (lat, lon) tuples for the snapped route.
     """
-    if len(route_chunk) < 2:
-        return route_chunk
-    
-    coords = ";".join([f"{lon},{lat}" for lat, lon in route_chunk])
-    url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords}?geometries=geojson&access_token={mapbox_token}"
+    url = "https://api.mapbox.com/directions/v5/mapbox/driving"
+    coordinates = ";".join([f"{lon},{lat}" for lat, lon in chunk])
+    params = {
+        "access_token": mapbox_token,
+        "geometries": "geojson"
+    }
     
     try:
-        response = requests.get(url)
+        response = requests.get(f"{url}/{coordinates}", params=params)
         response.raise_for_status()
-        route = response.json()["routes"][0]["geometry"]["coordinates"]
-        return [(lat, lon) for lon, lat in route]
+        data = response.json()
+        return [(point[1], point[0]) for point in data["routes"][0]["geometry"]["coordinates"]]
     except requests.exceptions.RequestException as e:
         if verbose:
-            print(f"Error fetching snapped route: {e}")
-        sys.exit(1)
+            print(f"Failed to fetch snapped route: {e}")
+        return chunk
 
 def get_snapped_route(route_coordinates, mapbox_token, verbose=True):
     """
-    Get a route snapped to the roads using Mapbox Directions API in chunks.
+    Get a snapped route for the full list of coordinates using the Mapbox Directions API.
     
     Args:
     route_coordinates (list): List of (lat, lon) tuples.
@@ -449,27 +491,28 @@ def main():
             networks = fetch_wifi_data(start_lat, start_lon, search_radius, network_type, config['wigle_api_name'], config['wigle_api_token'], True)
             
             if not networks:
-                print("No networks found.")
+                print("No networks found in the specified area. Try increasing the search radius or checking the network type.")
                 continue
-            
-            # Optimize the route to cover all networks
-            route = optimize_route(networks, start_lat, start_lon, True)
-            
-            # Plot and save the route to an HTML file
-            plot_route(route, start_lat, start_lon, config['mapbox_token'], True)
         
-        except ValueError as e:
-            print(e)
+            # Optimize the route
+            optimized_route = optimize_route(networks, start_lat, start_lon, True)
         
-        # Provide reminders to the user
-        print("\nReminder:")
-        print("1. Wardriving may require doubling back on the paths you've been on. You will go over some of the same areas more than once.")
-        print("2. Have fun and be safe. Prep all your gear before getting behind the wheel. Get water for your walk.\n")
-
-        # Ask the user if they want to make another query
-        requery = input("Do you want to make another search? (yes/no): ").lower()
-        if requery not in ['yes', 'y']:
+            # Plot the route on a map
+            plot_route(optimized_route, start_lat, start_lon, config['mapbox_token'], True)
+        
+            print("\nReminder:")
+            print("1. Wardriving may require doubling back on the paths you've been on. You will go over some of the same areas more than once.")
+            print("2. Have fun and be safe. Prep all your gear before getting behind the wheel. Get water for your walk.\n")
+        
+            # Prompt the user if they want to make another search
+            another_search = input("Do you want to make another search? (yes/no): ").strip().lower()
+            if another_search not in ["yes", "y"]:
+                break
+        except Exception as e:
+            print(f"An error occurred: {e}")
             break
 
 if __name__ == "__main__":
+    if not os.path.exists(KEY_FILE):
+        generate_key()
     main()
