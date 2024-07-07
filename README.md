@@ -1,6 +1,6 @@
 # NEW
+- API keys are stored encrypted in a config file
 - some more verbose messaging
-- A config file so you only need to enter your API keys once!
 - Denser path creation (for best results, keep your radius smaller)
 - RAINBOWS
 - Spinners for loading
