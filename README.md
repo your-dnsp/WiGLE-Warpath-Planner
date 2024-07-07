@@ -1,12 +1,12 @@
 # NEW
-- More verbose messaging
+- some more verbose messaging
 - A config file so you only need to enter your API keys once!
-- Denser path creation
+- Denser path creation (for best results, keep your radius smaller)
 - RAINBOWS
 - Spinners for loading
-- Love and reminders
+- Friendly reminders
 
-# Wardriving Route Planner
+# Wardriving Warpath Planner
 
 This Python script generates a wardriving route for Wi-Fi networks around a specified location using the Wigle API and the Mapbox Directions API. The route is optimized to cover as many Wi-Fi networks as possible within a specified search radius and is snapped to roads for accuracy. The script generates an HTML file with a map displaying the route, and it prints the start and end locations as addresses, along with the total distance of the route in miles.
 
