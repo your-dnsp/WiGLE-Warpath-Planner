@@ -11,12 +11,16 @@ import os
 import math
 import threading
 import itertools
+import argparse
+import logging
 from cryptography.fernet import Fernet
 
 CONFIG_FILE = 'config.json'
 KEY_FILE = 'secret.key'
-MAX_NETWORKS = 2000  # Maximum number of networks to fetch
 RETRY_LIMIT = 3  # Number of retries for network errors
+
+# Set up logging
+logging.basicConfig(filename='planner-log', level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
 def generate_key():
     """
@@ -75,6 +79,32 @@ def save_config(config):
     with open(CONFIG_FILE, 'w') as f:
         json.dump(encrypted_config, f)
 
+def parse_arguments():
+    """
+    Parse command-line arguments.
+    """
+    parser = argparse.ArgumentParser(description="Wardriving Route Planner")
+    parser.add_argument('--wigle_api_name', type=str, help='Wigle.net API name')
+    parser.add_argument('--wigle_api_token', type=str, help='Wigle.net API token')
+    parser.add_argument('--mapbox_token', type=str, help='Mapbox API token')
+    parser.add_argument('--start_location', type=str, help='Starting location (address or lat,long)')
+    parser.add_argument('--radius_km', type=float, help='Search radius in kilometers')
+    parser.add_argument('--network_type', type=str, choices=['open', 'secure', 'both'], help='Type of networks to target')
+    parser.add_argument('--max_points', type=int, default=2000, help='Maximum number of points to consider')
+    parser.add_argument('--min_signal_strength', type=int, default=-100, help='Minimum signal strength to consider')
+    args = parser.parse_args()
+
+    if any(arg in sys.argv for arg in ['--help', '--h', '-h', '-help', 'man']):
+        parser.print_help()
+        print("\nAdditional Information:")
+        print("This script helps you plan a wardriving route by fetching Wi-Fi network data from Wigle.net and optimizing the route.")
+        print("You can specify various parameters such as API credentials, starting location, search radius, network type, maximum points, and minimum signal strength.")
+        print("Example Usage:")
+        print("python planner.py --wigle_api_name your_username --wigle_api_token your_token --mapbox_token your_mapbox_token --start_location '123 Main St, Las Vegas, NV 89109, USA' --radius_km 5 --network_type both --max_points 2000 --min_signal_strength -80")
+        sys.exit(0)
+
+    return args
+
 def get_user_input(config):
     """
     Get user input for starting location, area to cover, and network parameters.
@@ -95,8 +125,10 @@ def get_user_input(config):
     print("3 - Both")
     network_type_choice = input("Enter your choice (1, 2, or 3): ")
     network_type = "both" if network_type_choice == "3" else ("free" if network_type_choice == "1" else "secure")
+    max_points = int(input("Enter the maximum number of points to consider (default 2000): ") or "2000")
+    min_signal_strength = int(input("Enter the minimum signal strength to consider (default -100): ") or "-100")
     print("Please wait...")
-    return start_location, search_radius_m, network_type
+    return start_location, search_radius_m, network_type, max_points, min_signal_strength
 
 def reverse_haversine(lat, lon, distance, bearing):
     """
@@ -121,7 +153,7 @@ def reverse_haversine(lat, lon, distance, bearing):
     
     return math.degrees(lat2), math.degrees(lon2)
 
-def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, verbose=True):
+def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, max_points, min_signal_strength, verbose=True):
     """
     Fetch Wi-Fi network data from Wigle.net API.
     
@@ -132,6 +164,8 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, verbose
     network_type (str): Type of networks to target.
     api_name (str): API name (username) for Wigle.net.
     api_token (str): API token for Wigle.net.
+    max_points (int): Maximum number of points to fetch.
+    min_signal_strength (int): Minimum signal strength to consider.
     verbose (bool): Enable verbose output.
     
     Returns:
@@ -169,27 +203,30 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, verbose
         for char in itertools.cycle('|/-\\'):
             if not loading:
                 break
-            sys.stdout.write(f'\rFetching networks... {char}')
+            sys.stdout.write(f'\rFetching networks... {char} ')
             sys.stdout.flush()
             time.sleep(0.1)
-        sys.stdout.write('\rFetching networks... Done!\n')
+        sys.stdout.write('\rFetching networks... Done!                    \n')
     
     # Start spinner
     loading = True
     spinner_thread = threading.Thread(target=spinner)
     spinner_thread.start()
 
-    while len(networks) < MAX_NETWORKS:
+    while len(networks) < max_points:
         try:
             response = requests.get(url, params=params, headers=headers)
             response.raise_for_status()
             results = response.json().get('results', [])
             if not results:
                 break
-            networks.extend(results)
+            filtered_results = [r for r in results if r.get('signal', -100) >= min_signal_strength]
+            networks.extend(filtered_results)
             params["offset"] += 100
             retry_count = 0  # Reset retry count after a successful fetch
+            sys.stdout.write(f'\rFetched {len(filtered_results)} networks,  Total so far: {len(networks)}.')
         except requests.exceptions.RequestException as e:
+            logging.error(f"Error fetching data: {e}")
             retry_count += 1
             if retry_count >= RETRY_LIMIT:
                 break
@@ -199,7 +236,7 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, verbose
     loading = False
     spinner_thread.join()
     
-    return networks[:MAX_NETWORKS]
+    return networks[:max_points]
 
 def optimize_route(networks, start_lat, start_lon, verbose=True):
     """
@@ -221,7 +258,7 @@ def optimize_route(networks, start_lat, start_lon, verbose=True):
             sys.stdout.write('\rOptimizing route... ' + char)
             sys.stdout.flush()
             time.sleep(0.1)
-        sys.stdout.write('\rOptimizing route... Done!\n')
+        sys.stdout.write('\rOptimizing route... Done!                    \n')
     
     coordinates = [(start_lat, start_lon)] + [(network['trilat'], network['trilong']) for network in networks]
     distance_matrix = cdist(coordinates, coordinates, metric='euclidean')
@@ -273,7 +310,7 @@ def get_snapped_route_chunk(chunk, mapbox_token, verbose=True):
         return [(point[1], point[0]) for point in data["routes"][0]["geometry"]["coordinates"]]
     except requests.exceptions.RequestException as e:
         if verbose:
-            print(f"Failed to fetch snapped route: {e}")
+            logging.error(f"Failed to fetch snapped route: {e}")
         return chunk
 
 def get_snapped_route(route_coordinates, mapbox_token, verbose=True):
@@ -325,8 +362,7 @@ def get_lat_lon_from_address(address, mapbox_token, verbose=True):
         else:
             raise ValueError("Address not found")
     except requests.exceptions.RequestException as e:
-        if verbose:
-            print(f"Error fetching coordinates: {e}")
+        logging.error(f"Error fetching coordinates: {e}")
         sys.exit(1)
 
 def get_address(lat, lon, mapbox_token, verbose=True):
@@ -353,8 +389,7 @@ def get_address(lat, lon, mapbox_token, verbose=True):
         else:
             return "Address not found"
     except requests.exceptions.RequestException as e:
-        if verbose:
-            print(f"Error fetching address: {e}")
+        logging.error(f"Error fetching address: {e}")
         return "Address not found"
 
 def calculate_total_distance(route_coordinates):
@@ -429,7 +464,7 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
             sys.stdout.write('\rSaving HTML file... ' + char)
             sys.stdout.flush()
             time.sleep(0.1)
-        sys.stdout.write('\rSaving HTML file... Done!\n')
+        sys.stdout.write('\rSaving HTML file... Done!                    \n')
     
     filename = f"wardriving_route_{epoch_time}.html"
 
@@ -468,14 +503,42 @@ def is_lat_lon(location):
     """
     return bool(re.match(r"^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$", location))
 
+def print_rubber_duck_ascii_art():
+    """
+    Print ASCII art of a rubber duck.
+    """
+    duck_art = r"""
+    >(')____,  >(')____,  >(')____,  >(')____,  >(') ___,
+      (` =~~/    (` =~~/    (` =~~/    (` =~~/    (` =~~/
+    ~~~^~^`---'~^~^~^`---'~^~^~^`---'~^~^~^`---'~^~^~^`---'
+    """
+    print(duck_art)
+
 def main():
     """
     Main function to run the Wardriving Route Planner.
     """
     config = load_config()
+    
+    args = parse_arguments()
+    
+    if args.wigle_api_name:
+        config['wigle_api_name'] = args.wigle_api_name
+    if args.wigle_api_token:
+        config['wigle_api_token'] = args.wigle_api_token
+    if args.mapbox_token:
+        config['mapbox_token'] = args.mapbox_token
+    
     while True:
         # Get user input for route planning
-        start_location, search_radius, network_type = get_user_input(config)
+        if args.start_location:
+            start_location = args.start_location
+            search_radius = args.radius_km * 1000  # Convert kilometers to meters
+            network_type = args.network_type
+            max_points = args.max_points
+            min_signal_strength = args.min_signal_strength
+        else:
+            start_location, search_radius, network_type, max_points, min_signal_strength = get_user_input(config)
         
         # Ensure configuration is saved after getting inputs
         save_config(config)
@@ -488,13 +551,14 @@ def main():
                 start_lat, start_lon = get_lat_lon_from_address(start_location, config['mapbox_token'], True)
         
             # Fetch Wi-Fi network data
-            networks = fetch_wifi_data(start_lat, start_lon, search_radius, network_type, config['wigle_api_name'], config['wigle_api_token'], True)
+            networks = fetch_wifi_data(start_lat, start_lon, search_radius, network_type, config['wigle_api_name'], config['wigle_api_token'], max_points, min_signal_strength, True)
             
             if not networks:
                 print("No networks found in the specified area. Try increasing the search radius or checking the network type.")
                 continue
         
             # Optimize the route
+            print("Please wait...")
             optimized_route = optimize_route(networks, start_lat, start_lon, True)
         
             # Plot the route on a map
@@ -507,8 +571,10 @@ def main():
             # Prompt the user if they want to make another search
             another_search = input("Do you want to make another search? (yes/no): ").strip().lower()
             if another_search not in ["yes", "y"]:
+                print_rubber_duck_ascii_art()
                 break
         except Exception as e:
+            logging.error(f"An error occurred: {e}")
             print(f"An error occurred: {e}")
             break
 

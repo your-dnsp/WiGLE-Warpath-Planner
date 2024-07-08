@@ -12,15 +12,15 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 
 ## Features
 
-- **API Integration**: Utilizes Wigle.net for Wi-Fi network data and Mapbox for geocoding and route snapping.
-- **User Input**: Prompts for API credentials, starting location (address or latitude/longitude), search radius in kilometers, and network type (open, secure, or both).
-- **Loading Indicators**: Displays loading spinners while fetching network data and optimizing the route, providing a clear visual indication of ongoing processes.
-- **Route Optimization**: Uses a greedy algorithm to optimize the route, ensuring minimal travel distance while covering all target networks.
-- **Route Snapping**: Snaps the route to roads using the Mapbox Directions API, creating a realistic and navigable path.
-- **Dynamic Coloring**: Plots the route with a dynamically changing color scheme, transitioning through a rainbow spectrum.
-- **Start and End Markers**: Includes distinct start (green) and end (blue) markers on the map.
-- **Safety Reminders**: Provides reminders to ensure users prepare adequately for wardriving activities.
-- **Config File**: Stores API credentials in a configuration file for ease of use in future sessions.
+- **Fetch Wi-Fi Networks**: Fetch Wi-Fi network data from Wigle.net based on a specified search radius and network type (open, secure, or both).
+- **Route Optimization**: Optimize the route to cover all target Wi-Fi networks using a greedy algorithm for simplicity.
+- **Interactive Map**: Generate an interactive map with the optimized route using Folium and visualize it with dynamic color changes for path segments.
+- **API Credentials Encryption**: Encrypt and store API credentials securely in a configuration file using the cryptography library.
+- **Command-Line Arguments**: Support for command-line arguments to specify API credentials, starting location, search radius, network type, maximum points, and minimum signal strength.
+- **Verbose Logging**: Enable verbose logging for detailed information and error handling.
+- **Loading Spinners**: Display loading spinners during data fetching and route optimization to indicate progress.
+- **Customizable Parameters**: Allow users to customize route parameters such as the maximum number of points and minimum signal strength.
+- **Reminder Messages**: Remind users about wardriving best practices and safety tips after generating the route.
 
 ## Requirements
 
@@ -36,7 +36,7 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 2. Install the necessary dependencies:
 
     ```sh
-    pip install requests numpy scipy folium
+    pip install requests numpy scipy folium cryptography argparse
     ```
 
 ## Usage
