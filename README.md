@@ -4,6 +4,7 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 
 ## Features
 
+- **GPX File Generation**: Added the ability to generate a GPX file for use with GPS devices, providing an additional format for route data.
 - **API Integration**: Fetches Wi-Fi network data from Wigle.net and maps routes using Mapbox API.
 - **Customizable Route Parameters**: Allows users to specify starting location, search radius, network type, maximum points, and minimum signal strength.
 - **Route Optimization**: Uses a greedy algorithm to prioritize the closest networks and optimize the route.
@@ -15,7 +16,7 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 - **Configuration File**: Stores API credentials securely in an encrypted configuration file.
 - **Command-Line Arguments**: Supports various command-line arguments for flexibility and ease of use.
 - **User-Friendly Prompts**: Interactive prompts guide the user through the setup and execution of the script.
-- **Spinners**: Because loading spinners are cool.
+- **Spinners and Loading Bars**: It gives feedback to the user and also looks super cool.
 - **Rainbow Path Lines**: Colors the path lines in a rainbow gradient for better visualization and cuteness.
 - **Route Distance Calculation**: Calculates and displays the total route distance in miles.
 
@@ -33,7 +34,7 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 2. Install the necessary dependencies:
 
     ```sh
-    pip install requests numpy scipy folium geopy cryptography argparse
+    pip install requests numpy scipy folium cryptography tqdm
     ```
 
 ## Usage
@@ -41,18 +42,21 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 For help running the script, use:
 
     python planner.py --help
+<<<<<<< HEAD
 
+=======
+>>>>>>> dc7f1852724868e90819e027c1cf5b8632821ac7
 
 1. Obtain API credentials:
     - Sign up for a free account on [Wigle](https://wigle.net/) and obtain API keys.
     - Sign up for a free account on [Mapbox](https://www.mapbox.com/) and get an API token.
 
 2. Run the script:
-
-    ```sh
+   ```
     python planner.py
-    ```
+   ```
 
+<<<<<<< HEAD
 3. Follow the prompts to enter:
     - **Wigle.net API Name**: Enter your Wigle.net API name.
     - **Wigle.net API Token**: Enter your Wigle.net API token.
@@ -68,10 +72,18 @@ For help running the script, use:
     - **Minimum Signal Strength**: Enter the minimum signal strength to consider in dBm (press Enter to use the default value of -100).
     - **Verbose Output**: Would you like detailed (verbose) output? (yes/no).
     - **Repeat Search**: Do you want to make another search? (yes/no).
+=======
+4. Follow the prompts to enter:
+    - Your Wigle.net API name and token (only once, will be saved in `config.json`).
+    - Your Mapbox API token (only once, will be saved in `config.json`).
+    - The starting location as either an address or latitude, longitude format (e.g., 36.1699,-115.1398).
+    - The search radius in kilometers.
+    - The type of networks to target (Open, Secure, Both).
+>>>>>>> dc7f1852724868e90819e027c1cf5b8632821ac7
 
-4. The script will generate an HTML file with the wardriving route and print the start and end locations, along with the total distance of the route in miles.
+5. The script will generate an HTML file with the wardriving route and print the start and end locations, along with the total distance of the route in miles.
 
-5. The script allows continuous querying. After each query, it will ask if you want to make another search.
+6. The script allows continuous querying. After each query, it will ask if you want to make another search.
 
 ## Example
 
