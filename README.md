@@ -49,21 +49,20 @@ For help running the script, use:
     - Sign up for a free account on [Mapbox](https://www.mapbox.com/) and get an API token.
 
 2. Run the script:
-
-    ```sh
+   ```
     python planner.py
-    ```
+   ```
 
-3. Follow the prompts to enter:
+4. Follow the prompts to enter:
     - Your Wigle.net API name and token (only once, will be saved in `config.json`).
     - Your Mapbox API token (only once, will be saved in `config.json`).
     - The starting location as either an address or latitude, longitude format (e.g., 36.1699,-115.1398).
     - The search radius in kilometers.
     - The type of networks to target (Open, Secure, Both).
 
-4. The script will generate an HTML file with the wardriving route and print the start and end locations, along with the total distance of the route in miles.
+5. The script will generate an HTML file with the wardriving route and print the start and end locations, along with the total distance of the route in miles.
 
-5. The script allows continuous querying. After each query, it will ask if you want to make another search.
+6. The script allows continuous querying. After each query, it will ask if you want to make another search.
 
 ## Example
 
