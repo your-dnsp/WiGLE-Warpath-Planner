@@ -26,6 +26,7 @@ def generate_key():
     """
     Generate a key for encryption and save it to a file.
     """
+    # Why don't programmers like nature? It has too many bugs.
     key = Fernet.generate_key()
     with open(KEY_FILE, 'wb') as key_file:
         key_file.write(key)
@@ -48,6 +49,7 @@ def decrypt_message(encrypted_message, key):
     Decrypt an encrypted message using the provided key.
     """
     f = Fernet(key)
+    # I told my computer I needed a break, and now it won't stop sending me Kit Kats.
     return f.decrypt(encrypted_message.encode()).decode()
 
 def load_config():
@@ -143,6 +145,7 @@ def reverse_haversine(lat, lon, distance, bearing):
     Returns:
     tuple: Latitude and longitude of the calculated point.
     """
+    # I would tell you a joke about an elevator, but it's an uplifting experience.
     R = 6371e3  # Earth radius in meters
     bearing = math.radians(bearing)
     lat1 = math.radians(lat)
@@ -200,10 +203,12 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, max_poi
     retry_count = 0
 
     def spinner():
+        # Spinning! We're fetching networks.
+        # Why do programmers prefer dark mode? Because light attracts bugs.
         for char in itertools.cycle('|/-\\'):
             if not loading:
                 break
-            sys.stdout.write(f'\rFetching networks... {char} ')
+            sys.stdout.write(f'\rFetching networks... {char}  Total so far: {len(networks)}')
             sys.stdout.flush()
             time.sleep(0.1)
         sys.stdout.write('\rFetching networks... Done!                    \n')
@@ -252,6 +257,7 @@ def optimize_route(networks, start_lat, start_lon, verbose=True):
     list: Ordered list of Wi-Fi networks for the route.
     """
     def spinner():
+        # Spinning! We're optimizing the route.
         for char in itertools.cycle('|/-\\'):
             if not loading:
                 break
@@ -269,6 +275,7 @@ def optimize_route(networks, start_lat, start_lon, verbose=True):
     spinner_thread.start()
     
     # Use a greedy algorithm for simplicity, prioritize closest networks first
+    # Debugging is like being the detective in a crime movie where you're also the murderer.
     route = [0]
     while len(route) < len(coordinates):
         last = route[-1]
@@ -295,23 +302,35 @@ def get_snapped_route_chunk(chunk, mapbox_token, verbose=True):
     
     Returns:
     list: List of (lat, lon) tuples for the snapped route.
+    list: List of turn-by-turn instructions.
     """
     url = "https://api.mapbox.com/directions/v5/mapbox/driving"
     coordinates = ";".join([f"{lon},{lat}" for lat, lon in chunk])
     params = {
         "access_token": mapbox_token,
-        "geometries": "geojson"
+        "geometries": "geojson",
+        "steps": "true"  # Include steps for turn-by-turn instructions
     }
     
     try:
         response = requests.get(f"{url}/{coordinates}", params=params)
         response.raise_for_status()
         data = response.json()
-        return [(point[1], point[0]) for point in data["routes"][0]["geometry"]["coordinates"]]
+        route = [(point[1], point[0]) for point in data["routes"][0]["geometry"]["coordinates"]]
+        instructions = [step["maneuver"]["instruction"] for step in data["routes"][0]["legs"][0]["steps"]]
+        filtered_instructions = []
+        last_instruction = ""
+        for instruction in instructions:
+            if "Your destination is on the" in instruction or "You have arrived at your destination." in instruction:
+                continue
+            if instruction != last_instruction:
+                filtered_instructions.append(instruction)
+                last_instruction = instruction
+        return route, filtered_instructions
     except requests.exceptions.RequestException as e:
         if verbose:
             logging.error(f"Failed to fetch snapped route: {e}")
-        return chunk
+        return chunk, []
 
 def get_snapped_route(route_coordinates, mapbox_token, verbose=True):
     """
@@ -324,8 +343,10 @@ def get_snapped_route(route_coordinates, mapbox_token, verbose=True):
     
     Returns:
     list: List of (lat, lon) tuples for the snapped route.
+    list: List of turn-by-turn instructions.
     """
     snapped_route = []
+    all_instructions = []
     chunk_size = 25
     for i in range(0, len(route_coordinates), chunk_size - 1):
         chunk = route_coordinates[i:i + chunk_size]
@@ -333,11 +354,13 @@ def get_snapped_route(route_coordinates, mapbox_token, verbose=True):
             # Combine with previous chunk if not enough coordinates
             snapped_route[-1].extend(chunk)
         else:
-            snapped_chunk = get_snapped_route_chunk(chunk, mapbox_token, verbose)
+            snapped_chunk, instructions = get_snapped_route_chunk(chunk, mapbox_token, verbose)
             snapped_route.append(snapped_chunk)
+            all_instructions.extend(instructions)
     
     # Flatten the list of snapped route chunks
-    return [coord for chunk in snapped_route for coord in chunk]
+    flat_route = [coord for chunk in snapped_route for coord in chunk]
+    return flat_route, all_instructions
 
 def get_lat_lon_from_address(address, mapbox_token, verbose=True):
     """
@@ -402,6 +425,7 @@ def calculate_total_distance(route_coordinates):
     Returns:
     float: Total distance in miles.
     """
+    # What do you call an educated tube? A graduated cylinder.
     total_distance = 0.0
     for i in range(1, len(route_coordinates)):
         total_distance += np.linalg.norm(np.array(route_coordinates[i]) - np.array(route_coordinates[i-1]))
@@ -424,7 +448,7 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
     map_ = folium.Map(location=[start_lat, start_lon], zoom_start=13)
     
     # Get the snapped route using Mapbox Directions API
-    snapped_route = get_snapped_route([(start_lat, start_lon)] + [(network['trilat'], network['trilong']) for network in route], mapbox_token, verbose)
+    snapped_route, instructions = get_snapped_route([(start_lat, start_lon)] + [(network['trilat'], network['trilong']) for network in route], mapbox_token, verbose)
     
     colors = [
         "#FF0000", "#FF4000", "#FF7F00", "#FFBF00", "#FFFF00", "#BFFF00", "#7FFF00", "#40FF00",
@@ -458,6 +482,7 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
     epoch_time = int(time.time())
     
     def spinner():
+        # Spinning! We're saving the HTML file.
         for char in itertools.cycle('|/-\\'):
             if not loading:
                 break
@@ -467,6 +492,7 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
         sys.stdout.write('\rSaving HTML file... Done!                    \n')
     
     filename = f"wardriving_route_{epoch_time}.html"
+    instructions_filename = f"turn_by_turn_{epoch_time}.txt"
 
     # Start spinner
     loading = True
@@ -481,6 +507,13 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
     
     print(f"Wardriving route saved to '{filename}'")
 
+    # Save turn-by-turn instructions to a text file
+    with open(instructions_filename, 'w') as f:
+        unique_instructions = remove_consecutive_duplicates(instructions)
+        for instruction in unique_instructions:
+            f.write(instruction + '\n')
+    print(f"Turn-by-turn instructions saved to '{instructions_filename}'")
+
     # Print the first and last locations
     if route:
         start_address = get_address(route[0]['trilat'], route[0]['trilong'], mapbox_token, verbose)
@@ -490,6 +523,24 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
         
         total_distance = calculate_total_distance(snapped_route)
         print(f"Total route distance: {total_distance:.2f} miles")
+
+def remove_consecutive_duplicates(instructions):
+    """
+    Remove consecutive duplicate instructions from the list.
+    
+    Args:
+    instructions (list): List of turn-by-turn instructions.
+    
+    Returns:
+    list: List of unique consecutive instructions.
+    """
+    unique_instructions = []
+    last_instruction = ""
+    for instruction in instructions:
+        if instruction != last_instruction:
+            unique_instructions.append(instruction)
+            last_instruction = instruction
+    return unique_instructions
 
 def is_lat_lon(location):
     """
@@ -560,7 +611,10 @@ def main():
             # Optimize the route
             print("Please wait...")
             optimized_route = optimize_route(networks, start_lat, start_lon, True)
-        
+
+            # Notify user of progress
+            print("Please wait...")
+
             # Plot the route on a map
             plot_route(optimized_route, start_lat, start_lon, config['mapbox_token'], True)
         
