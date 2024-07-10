@@ -4,6 +4,7 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 
 ## Features
 
+- **GPX File Generation**: Added the ability to generate a GPX file for use with GPS devices, providing an additional format for route data.
 - **API Integration**: Fetches Wi-Fi network data from Wigle.net and maps routes using Mapbox API.
 - **Customizable Route Parameters**: Allows users to specify starting location, search radius, network type, maximum points, and minimum signal strength.
 - **Route Optimization**: Uses a greedy algorithm to prioritize the closest networks and optimize the route.
@@ -15,7 +16,7 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 - **Configuration File**: Stores API credentials securely in an encrypted configuration file.
 - **Command-Line Arguments**: Supports various command-line arguments for flexibility and ease of use.
 - **User-Friendly Prompts**: Interactive prompts guide the user through the setup and execution of the script.
-- **Spinners**: Because loading spinners are cool.
+- **Spinners and Loading Bars**: It gives feedback to the user and also looks super cool.
 - **Rainbow Path Lines**: Colors the path lines in a rainbow gradient for better visualization and cuteness.
 - **Route Distance Calculation**: Calculates and displays the total route distance in miles.
 
@@ -33,7 +34,7 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 2. Install the necessary dependencies:
 
     ```sh
-    pip install requests numpy scipy folium geopy cryptography argparse
+    pip install requests numpy scipy folium cryptography tqdm
     ```
 
 ## Usage
@@ -41,9 +42,13 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 For help running the script, use:
 
     python planner.py --help
+<<<<<<< HEAD
+
+=======
+>>>>>>> dc7f1852724868e90819e027c1cf5b8632821ac7
 
 1. Obtain API credentials:
-    - Sign up for a free account on [Wigle](https://wigle.net/).
+    - Sign up for a free account on [Wigle](https://wigle.net/) and obtain API keys.
     - Sign up for a free account on [Mapbox](https://www.mapbox.com/) and get an API token.
 
 2. Run the script:
@@ -51,12 +56,30 @@ For help running the script, use:
     python planner.py
    ```
 
+<<<<<<< HEAD
+3. Follow the prompts to enter:
+    - **Wigle.net API Name**: Enter your Wigle.net API name.
+    - **Wigle.net API Token**: Enter your Wigle.net API token.
+    - **Mapbox API Token**: Enter your Mapbox API token.
+    - **Starting Location**: Enter the starting location as either an address or latitude, longitude format (e.g., '123 Main St, Las Vegas, NV' or '36.1699,-115.1398').
+    - **Search Radius**: Enter the search radius in kilometers (e.g., 2).
+    - **Network Type**:
+      - 1 - Open (Free networks)
+      - 2 - Secure (Encrypted networks)
+      - 3 - Both (All networks)
+      - Enter your choice for network type (1 for Open, 2 for Secure, 3 for Both).
+    - **Maximum Number of Wi-Fi Networks**: Enter the maximum number of Wi-Fi networks to consider (press Enter to use the default value of 2000).
+    - **Minimum Signal Strength**: Enter the minimum signal strength to consider in dBm (press Enter to use the default value of -100).
+    - **Verbose Output**: Would you like detailed (verbose) output? (yes/no).
+    - **Repeat Search**: Do you want to make another search? (yes/no).
+=======
 4. Follow the prompts to enter:
     - Your Wigle.net API name and token (only once, will be saved in `config.json`).
     - Your Mapbox API token (only once, will be saved in `config.json`).
     - The starting location as either an address or latitude, longitude format (e.g., 36.1699,-115.1398).
     - The search radius in kilometers.
     - The type of networks to target (Open, Secure, Both).
+>>>>>>> dc7f1852724868e90819e027c1cf5b8632821ac7
 
 5. The script will generate an HTML file with the wardriving route and print the start and end locations, along with the total distance of the route in miles.
 
@@ -65,30 +88,43 @@ For help running the script, use:
 ## Example
 
 ```sh
-Enter your Wigle.net API name: your_wigle_username
-Enter your Wigle.net API token: your_wigle_token
-Enter your Mapbox API token: your_mapbox_token
-Enter the starting location: 123 Main St, Las Vegas, NV 89109, USA
-Enter the search radius in kilometers: 5
+$ python planner.py
+Enter the starting location as either an address or latitude, longitude format (e.g., 36.1699,-115.1398).
+Enter the starting location (address or lat,lon): 401 n grant st west lafayette in 47906
+Enter the search radius in kilometers (e.g., 5): 1
 Select the type of networks to target:
-1 - Open
-2 - Secure
-3 - Both
-Enter your choice (1, 2, or 3): 3
+1 - Open (Free networks)
+2 - Secure (Encrypted networks)
+3 - Both (All networks)
+Enter your choice for network type (1 for Open, 2 for Secure, 3 for Both): 3
+Enter the maximum number of Wi-Fi networks to consider (press Enter to use the default value of 2000): 
+Enter the minimum signal strength to consider in dBm (press Enter to use the default value of -100): 
+Would you like detailed (verbose) output? (yes/no): yes
 Please wait...
-Fetching networks... Done!
+Resolved coordinates: 40.427642, -86.911141
+Fetching networks... Done!                    Total so far: 2000.
+Please wait...
 Optimizing route... Done!
+Please wait...
 Saving HTML file... Done!
 Wardriving route saved to 'wardriving_route_1720295065.html'
-Start location: 123 Main St, Las Vegas, NV 89109, USA
-End location: 456 Another St, Las Vegas, NV 89109, USA
-Total route distance: 3.75 miles
+Turn-by-turn instructions saved to 'turn_by_turn_1720295065.txt'
+GPX file saved to 'wardriving_route_1720295065.gpx'
+Start location: 401 North Grant Street, West Lafayette, Indiana 47906, United States
+End location: 1815 Northwestern Avenue, West Lafayette, Indiana 47906, United States
+Total route distance: 0.33 miles
+
+Summary Statistics:
+Total networks found: 2000
+Open networks: 1500
+Secure networks: 500
+Total route distance: 0.33 miles
 
 Reminder:
 1. Wardriving may require doubling back on the paths you've been on. You will go over some of the same areas more than once.
 2. Have fun and be safe. Prep all your gear before getting behind the wheel. Get water for your walk.
 
-Do you want to make another search? (yes/no):
+Do you want to make another search? (yes/no): no
 ```
 
 ### Thank you!
