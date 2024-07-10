@@ -1,24 +1,23 @@
-# NEW
-- API keys are stored encrypted in a config file
-- Use -h to get a list of arguments
-- Denser path creation (for best results, keep your radius smaller)
-- Snazzy looking stuff
-
 # Wardriving Warpath Planner
 
 This Python script generates a wardriving route for Wi-Fi networks around a specified location using the Wigle API and the Mapbox Directions API. The route is optimized to cover as many Wi-Fi networks as possible within a specified search radius and is snapped to roads for accuracy. The script generates an HTML file with a map displaying the route, and it prints the start and end locations as addresses, along with the total distance of the route in miles.
 
 ## Features
 
-- **Fetch Wi-Fi Networks**: Fetch Wi-Fi network data from Wigle.net based on a specified search radius and network type (open, secure, or both).
-- **Route Optimization**: Optimize the route to cover all target Wi-Fi networks using a greedy algorithm for simplicity.
-- **Interactive Map**: Generate an interactive map with the optimized route using Folium and visualize it with dynamic color changes for path segments.
-- **API Credentials Encryption**: Encrypt and store API credentials securely in a configuration file using the cryptography library.
-- **Command-Line Arguments**: Support for command-line arguments to specify API credentials, starting location, search radius, network type, maximum points, and minimum signal strength.
-- **Verbose Logging**: Enable verbose logging for detailed information and error handling.
-- **Loading Spinners**: Display loading spinners during data fetching and route optimization to indicate progress.
-- **Customizable Parameters**: Allow users to customize route parameters such as the maximum number of points and minimum signal strength.
-- **Reminder Messages**: Remind users about wardriving best practices and safety tips after generating the route.
+- **API Integration**: Fetches Wi-Fi network data from Wigle.net and maps routes using Mapbox API.
+- **Customizable Route Parameters**: Allows users to specify starting location, search radius, network type, maximum points, and minimum signal strength.
+- **Route Optimization**: Uses a greedy algorithm to prioritize the closest networks and optimize the route.
+- **Dynamic Route Plotting**: Plots the route on a map with dynamic color changes based on the progress of the route.
+- **Snapped Routes**: Utilizes Mapbox Directions API to snap the route to roads, ensuring a realistic driving path.
+- **Turn-by-Turn Instructions**: Generates a text file with turn-by-turn driving instructions for the optimized route.
+- **Verbose Mode**: Provides detailed output and feedback during the execution of the script.
+- **Error Handling**: Includes robust error handling and logging to ensure smooth execution.
+- **Configuration File**: Stores API credentials securely in an encrypted configuration file.
+- **Command-Line Arguments**: Supports various command-line arguments for flexibility and ease of use.
+- **User-Friendly Prompts**: Interactive prompts guide the user through the setup and execution of the script.
+- **Spinners**: Because loading spinners are cool.
+- **Rainbow Path Lines**: Colors the path lines in a rainbow gradient for better visualization and cuteness.
+- **Route Distance Calculation**: Calculates and displays the total route distance in miles.
 
 ## Requirements
 
@@ -34,10 +33,16 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 2. Install the necessary dependencies:
 
     ```sh
-    pip install requests numpy scipy folium cryptography argparse
+    pip install requests numpy scipy folium geopy cryptography argparse
     ```
 
 ## Usage
+
+For help running the script, use:
+
+    ```sh
+    python planner.py --help
+    ```
 
 1. Obtain API credentials:
     - Sign up for a free account on [Wigle](https://wigle.net/).
