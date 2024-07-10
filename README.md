@@ -40,9 +40,7 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 
 For help running the script, use:
 
-    ```sh
     python planner.py --help
-    ```
 
 1. Obtain API credentials:
     - Sign up for a free account on [Wigle](https://wigle.net/).
