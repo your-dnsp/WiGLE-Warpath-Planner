@@ -14,6 +14,8 @@ import itertools
 import argparse
 import logging
 from cryptography.fernet import Fernet
+from xml.etree.ElementTree import Element, SubElement, ElementTree
+from tqdm import tqdm
 
 CONFIG_FILE = 'config.json'
 KEY_FILE = 'secret.key'
@@ -117,20 +119,21 @@ def get_user_input(config):
     if 'mapbox_token' not in config:
         config['mapbox_token'] = input("Enter your Mapbox API token: ")
 
-    print("Enter the starting location as either an address or latitude, longitude format (e.g., 36.1699,-115.1398).")
-    start_location = input("Enter the starting location: ")
-    search_radius_km = float(input("Enter the search radius in kilometers: "))
+    print("Please enter the starting location. You can provide an address (e.g., '123 Main St, Las Vegas, NV') or latitude, longitude coordinates (e.g., '36.1699,-115.1398').")
+    start_location = input("Enter the starting location (address or lat,lon): ")
+    search_radius_km = float(input("Enter the search radius in kilometers (e.g., 5): "))
     search_radius_m = search_radius_km * 1000  # Convert kilometers to meters
     print("Select the type of networks to target:")
-    print("1 - Open")
-    print("2 - Secure")
-    print("3 - Both")
-    network_type_choice = input("Enter your choice (1, 2, or 3): ")
+    print("1 - Open (Free networks)")
+    print("2 - Secure (Encrypted networks)")
+    print("3 - Both (All networks)")
+    network_type_choice = input("Enter your choice for network type (1 for Open, 2 for Secure, 3 for Both): ")
     network_type = "both" if network_type_choice == "3" else ("free" if network_type_choice == "1" else "secure")
-    max_points = int(input("Enter the maximum number of points to consider (default 2000): ") or "2000")
-    min_signal_strength = int(input("Enter the minimum signal strength to consider (default -100): ") or "-100")
+    max_points = int(input("Enter the maximum number of Wi-Fi networks to consider (press Enter to use the default value of 2000): ") or "2000")
+    min_signal_strength = int(input("Enter the minimum signal strength to consider in dBm (press Enter to use the default value of -100): ") or "-100")
+    verbose = input("Would you like detailed (verbose) output? (yes/no): ").strip().lower() == 'yes'
     print("Please wait...")
-    return start_location, search_radius_m, network_type, max_points, min_signal_strength
+    return start_location, search_radius_m, network_type, max_points, min_signal_strength, verbose
 
 def reverse_haversine(lat, lon, distance, bearing):
     """
@@ -202,44 +205,26 @@ def fetch_wifi_data(lat, lon, radius, network_type, api_name, api_token, max_poi
     networks = []
     retry_count = 0
 
-    def spinner():
-        # Spinning! We're fetching networks.
-        # Why do programmers prefer dark mode? Because light attracts bugs.
-        for char in itertools.cycle('|/-\\'):
-            if not loading:
-                break
-            sys.stdout.write(f'\rFetching networks... {char}  Total so far: {len(networks)}')
-            sys.stdout.flush()
-            time.sleep(0.1)
-        sys.stdout.write('\rFetching networks... Done!                    \n')
-    
-    # Start spinner
-    loading = True
-    spinner_thread = threading.Thread(target=spinner)
-    spinner_thread.start()
-
-    while len(networks) < max_points:
-        try:
-            response = requests.get(url, params=params, headers=headers)
-            response.raise_for_status()
-            results = response.json().get('results', [])
-            if not results:
-                break
-            filtered_results = [r for r in results if r.get('signal', -100) >= min_signal_strength]
-            networks.extend(filtered_results)
-            params["offset"] += 100
-            retry_count = 0  # Reset retry count after a successful fetch
-            sys.stdout.write(f'\rFetched {len(filtered_results)} networks,  Total so far: {len(networks)}.')
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Error fetching data: {e}")
-            retry_count += 1
-            if retry_count >= RETRY_LIMIT:
-                break
-            time.sleep(1)  # Wait for a second before retrying
-    
-    # Stop spinner
-    loading = False
-    spinner_thread.join()
+    # Start loading bar
+    with tqdm(total=max_points, desc="Fetching networks", bar_format="{l_bar}{bar:20}{r_bar}{bar:-20b}", colour="green") as pbar:
+        while len(networks) < max_points:
+            try:
+                response = requests.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                results = response.json().get('results', [])
+                if not results:
+                    break
+                filtered_results = [r for r in results if r.get('signal', -100) >= min_signal_strength]
+                networks.extend(filtered_results)
+                params["offset"] += 100
+                retry_count = 0  # Reset retry count after a successful fetch
+                pbar.update(len(filtered_results))
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Error fetching data: {e}")
+                retry_count += 1
+                if retry_count >= RETRY_LIMIT:
+                    break
+                time.sleep(1)  # Wait for a second before retrying
     
     return networks[:max_points]
 
@@ -493,6 +478,7 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
     
     filename = f"wardriving_route_{epoch_time}.html"
     instructions_filename = f"turn_by_turn_{epoch_time}.txt"
+    gpx_filename = f"wardriving_route_{epoch_time}.gpx"
 
     # Start spinner
     loading = True
@@ -514,6 +500,10 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
             f.write(instruction + '\n')
     print(f"Turn-by-turn instructions saved to '{instructions_filename}'")
 
+    # Save GPX file
+    save_gpx(snapped_route, gpx_filename)
+    print(f"GPX file saved to '{gpx_filename}'")
+
     # Print the first and last locations
     if route:
         start_address = get_address(route[0]['trilat'], route[0]['trilong'], mapbox_token, verbose)
@@ -523,6 +513,38 @@ def plot_route(route, start_lat, start_lon, mapbox_token, verbose=True):
         
         total_distance = calculate_total_distance(snapped_route)
         print(f"Total route distance: {total_distance:.2f} miles")
+    
+    # Summary statistics
+    num_open_networks = sum(1 for network in route if network.get('freenet') == 'true')
+    num_secure_networks = len(route) - num_open_networks
+    print("\nSummary Statistics:")
+    print(f"Total networks found: {len(route)}")
+    print(f"Open networks: {num_open_networks}")
+    print(f"Secure networks: {num_secure_networks}")
+    print(f"Total route distance: {total_distance:.2f} miles")
+
+def save_gpx(route_coordinates, filename):
+    """
+    Save the route as a GPX file.
+    
+    Args:
+    route_coordinates (list): List of (lat, lon) tuples.
+    filename (str): Filename to save the GPX file.
+    
+    Returns:
+    None
+    """
+    gpx = Element('gpx', version="1.1", creator="Wardriving Route Planner")
+    trk = SubElement(gpx, 'trk')
+    name = SubElement(trk, 'name')
+    name.text = "Wardriving Route"
+    trkseg = SubElement(trk, 'trkseg')
+    
+    for lat, lon in route_coordinates:
+        trkpt = SubElement(trkseg, 'trkpt', lat=str(lat), lon=str(lon))
+    
+    tree = ElementTree(gpx)
+    tree.write(filename, encoding='utf-8', xml_declaration=True)
 
 def remove_consecutive_duplicates(instructions):
     """
@@ -589,7 +611,7 @@ def main():
             max_points = args.max_points
             min_signal_strength = args.min_signal_strength
         else:
-            start_location, search_radius, network_type, max_points, min_signal_strength = get_user_input(config)
+            start_location, search_radius, network_type, max_points, min_signal_strength, verbose = get_user_input(config)
         
         # Ensure configuration is saved after getting inputs
         save_config(config)
@@ -602,21 +624,50 @@ def main():
                 start_lat, start_lon = get_lat_lon_from_address(start_location, config['mapbox_token'], True)
         
             # Fetch Wi-Fi network data
-            networks = fetch_wifi_data(start_lat, start_lon, search_radius, network_type, config['wigle_api_name'], config['wigle_api_token'], max_points, min_signal_strength, True)
+            networks = fetch_wifi_data(start_lat, start_lon, search_radius, network_type, config['wigle_api_name'], config['wigle_api_token'], max_points, min_signal_strength, verbose)
             
             if not networks:
                 print("No networks found in the specified area. Try increasing the search radius or checking the network type.")
                 continue
         
             # Optimize the route
-            print("Please wait...")
-            optimized_route = optimize_route(networks, start_lat, start_lon, True)
+            def spinner():
+                # Spinning! We're optimizing the route.
+                for char in itertools.cycle('|/-\\'):
+                    if not loading:
+                        break
+                    sys.stdout.write('\rOptimizing route... ' + char)
+                    sys.stdout.flush()
+                    time.sleep(0.1)
+                sys.stdout.write('\rOptimizing route... Done!                    \n')
+
+            loading = True
+            spinner_thread = threading.Thread(target=spinner)
+            spinner_thread.start()
+
+            optimized_route = optimize_route(networks, start_lat, start_lon, verbose)
+            loading = False
+            spinner_thread.join()
 
             # Notify user of progress
-            print("Please wait...")
+            def spinner():
+                # Spinning! We're saving the HTML file.
+                for char in itertools.cycle('|/-\\'):
+                    if not loading:
+                        break
+                    sys.stdout.write('\rSaving HTML file... ' + char)
+                    sys.stdout.flush()
+                    time.sleep(0.1)
+                sys.stdout.write('\rSaving HTML file... Done!                    \n')
+
+            loading = True
+            spinner_thread = threading.Thread(target=spinner)
+            spinner_thread.start()
 
             # Plot the route on a map
-            plot_route(optimized_route, start_lat, start_lon, config['mapbox_token'], True)
+            plot_route(optimized_route, start_lat, start_lon, config['mapbox_token'], verbose)
+            loading = False
+            spinner_thread.join()
         
             print("\nReminder:")
             print("1. Wardriving may require doubling back on the paths you've been on. You will go over some of the same areas more than once.")

@@ -1,5 +1,9 @@
 # Changelog for planner.py
 
+## Version 6
+- Introduced green loading bars and other asthetic changes
+- Added GPX functionality. You can take your generated path and import into a GPS module and have it guide you as you wardrive. The script now provides 3 outputs: map html, text turn-by-turn instructions, and a GPX for GPS output. 
+
 ## Version 5
 - Introduced turn-by-turn instructions as a text file output.
 - Improved output.
