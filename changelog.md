@@ -1,4 +1,4 @@
-# Changelog for planner.py
+# Changelog for the Warparth planner
 
 ## Version 6
 - Introduced green loading bars and other asthetic changes to look cool.
