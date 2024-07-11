@@ -40,9 +40,9 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 ## Usage
 
 For help running the script, use:
-
-        python planner.py --help
-
+   ```
+    python planner.py --help
+   ```  
 ## Instructions
 
 1. Obtain API credentials:
