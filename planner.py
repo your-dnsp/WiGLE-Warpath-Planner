@@ -687,3 +687,4 @@ if __name__ == "__main__":
     if not os.path.exists(KEY_FILE):
         generate_key()
     main()
+    #fin
