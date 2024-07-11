@@ -43,9 +43,14 @@ For help running the script, use:
 
     python planner.py --help
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 >>>>>>> dc7f1852724868e90819e027c1cf5b8632821ac7
+=======
+
+## Instructions
+>>>>>>> 7fb16669e62e8d79e87b96dd622089ca9ed81105
 
 1. Obtain API credentials:
     - Sign up for a free account on [Wigle](https://wigle.net/) and obtain API keys.
@@ -55,8 +60,12 @@ For help running the script, use:
    ```
     python planner.py
    ```
+<<<<<<< HEAD
 
 <<<<<<< HEAD
+=======
+   
+>>>>>>> 7fb16669e62e8d79e87b96dd622089ca9ed81105
 3. Follow the prompts to enter:
     - **Wigle.net API Name**: Enter your Wigle.net API name.
     - **Wigle.net API Token**: Enter your Wigle.net API token.
@@ -72,7 +81,11 @@ For help running the script, use:
     - **Minimum Signal Strength**: Enter the minimum signal strength to consider in dBm (press Enter to use the default value of -100).
     - **Verbose Output**: Would you like detailed (verbose) output? (yes/no).
     - **Repeat Search**: Do you want to make another search? (yes/no).
+<<<<<<< HEAD
 =======
+=======
+
+>>>>>>> 7fb16669e62e8d79e87b96dd622089ca9ed81105
 4. Follow the prompts to enter:
     - Your Wigle.net API name and token (only once, will be saved in `config.json`).
     - Your Mapbox API token (only once, will be saved in `config.json`).
