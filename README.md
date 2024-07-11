@@ -44,7 +44,6 @@ For help running the script, use:
     python planner.py --help
 
 ## Instructions
->>>>>>> 7fb16669e62e8d79e87b96dd622089ca9ed81105
 
 1. Obtain API credentials:
     - Sign up for a free account on [Wigle](https://wigle.net/) and obtain API keys.
