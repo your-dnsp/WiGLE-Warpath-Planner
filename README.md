@@ -42,12 +42,6 @@ This Python script generates a wardriving route for Wi-Fi networks around a spec
 For help running the script, use:
 
     python planner.py --help
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-=======
->>>>>>> dc7f1852724868e90819e027c1cf5b8632821ac7
-=======
 
 ## Instructions
 >>>>>>> 7fb16669e62e8d79e87b96dd622089ca9ed81105
@@ -59,13 +53,8 @@ For help running the script, use:
 2. Run the script:
    ```
     python planner.py
-   ```
-<<<<<<< HEAD
+   ```  
 
-<<<<<<< HEAD
-=======
-   
->>>>>>> 7fb16669e62e8d79e87b96dd622089ca9ed81105
 3. Follow the prompts to enter:
     - **Wigle.net API Name**: Enter your Wigle.net API name.
     - **Wigle.net API Token**: Enter your Wigle.net API token.
@@ -81,18 +70,13 @@ For help running the script, use:
     - **Minimum Signal Strength**: Enter the minimum signal strength to consider in dBm (press Enter to use the default value of -100).
     - **Verbose Output**: Would you like detailed (verbose) output? (yes/no).
     - **Repeat Search**: Do you want to make another search? (yes/no).
-<<<<<<< HEAD
-=======
-=======
 
->>>>>>> 7fb16669e62e8d79e87b96dd622089ca9ed81105
 4. Follow the prompts to enter:
     - Your Wigle.net API name and token (only once, will be saved in `config.json`).
     - Your Mapbox API token (only once, will be saved in `config.json`).
     - The starting location as either an address or latitude, longitude format (e.g., 36.1699,-115.1398).
     - The search radius in kilometers.
     - The type of networks to target (Open, Secure, Both).
->>>>>>> dc7f1852724868e90819e027c1cf5b8632821ac7
 
 5. The script will generate an HTML file with the wardriving route and print the start and end locations, along with the total distance of the route in miles.
 
